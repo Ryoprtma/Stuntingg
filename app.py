@@ -1,32 +1,50 @@
+# NOTE: This script is intended to run in a Streamlit-compatible Python environment.
+# If you encounter 'ModuleNotFoundError: No module named ...', install dependencies with:
+# pip install streamlit pandas xgboost matplotlib seaborn
+
 import streamlit as st
 import pandas as pd
-import numpy as np
 import pickle
+import xgboost as xgb
+import matplotlib.pyplot as plt
+import seaborn as sns
 
-# Load model dan komponen terkait
 
-model = pickle.load(open('model_xgboost1.pkl', 'rb'))
+# ==== Muat model terlatih ====
+try:
+    with open('model_xgboost1.pkl', 'rb') as f:
+        model = pickle.load(f)
+except FileNotFoundError:
+    st.error("File model_xgboost1.pkl tidak ditemukan. Pastikan file sudah tersedia di direktori.")
+    st.stop()
 
+# === Konstanta preprocessing ===
+TINGGI_MEAN = 86.04  # cm – hasil rata‑rata setelah hapus duplikat
 
-# Judul aplikasi
+# === Urutan fitur yang dibutuhkan model ===
+Fitur_Model = [
+    'Umur (bulan)',
+    'Jenis Kelamin',
+    'Berat Badan (kg)',
+    'Tinggi Badan (cm)',
+    'Tinggi di atas rata-rata'
+]
+
+# === Judul aplikasi ===
 st.title("Prediksi Stunting pada Balita")
 st.markdown("Masukkan data berikut untuk mengetahui prediksi status gizi:")
 
-# Form input data pengguna
-umur = st.number_input("Umur (bulan)", min_value=0, max_value=60, value=24)
+# === Input Form ===
+umur = st.number_input("Umur (bulan)", 0, 60, value=24)
 jenis_kelamin = st.selectbox("Jenis Kelamin", ['Laki-laki', 'Perempuan'])
-berat_badan = st.number_input("Berat Badan (kg)", min_value=2.0, max_value=30.0, step=0.1, value=10.0)
-tinggi_badan = st.number_input("Tinggi Badan (cm)", min_value=30.0, max_value=120.0, step=0.1, value=80.0)
+berat_badan = st.number_input("Berat Badan (kg)", 2.0, 30.0, step=0.1, value=10.0)
+tinggi_badan = st.number_input("Tinggi Badan (cm)", 30.0, 120.0, step=0.1, value=80.0)
 
-# Proses input
+# === Prediksi ===
 if st.button("Prediksi"):
-    # Ubah jenis kelamin ke numerik
     jk_numeric = 1 if jenis_kelamin == 'Laki-laki' else 0
+    tinggi_di_atas_rata = 1 if tinggi_badan > TINGGI_MEAN else 0
 
-    # Buat fitur 'tinggi di atas rata-rata'
-    tinggi_di_atas_rata = 1 if tinggi_badan > tinggi_mean else 0
-
-    # Buat DataFrame input
     data_input = pd.DataFrame([{
         'Umur (bulan)': umur,
         'Jenis Kelamin': jk_numeric,
@@ -35,14 +53,19 @@ if st.button("Prediksi"):
         'Tinggi di atas rata-rata': tinggi_di_atas_rata
     }])
 
-    # Sesuaikan urutan fitur agar sama dengan saat training
-    data_input = data_input[fitur_model]
+    try:
+        data_input = data_input[Fitur_Model]
+        prediksi = model.predict(data_input)[0]
+        probabilitas = model.predict_proba(data_input)[0]
 
-    # Prediksi
-    prediksi = model.predict(data_input)[0]
-    probabilitas = model.predict_proba(data_input)[0]
+        st.success(f"Prediksi Status Gizi: **{prediksi}**")
 
-    # Tampilkan hasil
-    st.success(f"Prediksi Status Gizi: **{prediksi}**")
-    st.write("Probabilitas:")
-    st.write({f"{model.classes_[i]}": f"{round(prob * 100, 2)}%" for i, prob in enumerate(probabilitas)})
+        # === Visualisasi Probabilitas ===
+        fig, ax = plt.subplots()
+        sns.barplot(x=model.classes_, y=probabilitas, ax=ax, palette="Set2")
+        ax.set_ylabel("Probabilitas")
+        ax.set_ylim(0, 1)
+        ax.set_title("Probabilitas Tiap Kelas")
+        st.pyplot(fig)
+    except Exception as e:
+        st.error(f"Terjadi kesalahan saat prediksi: {e}")
