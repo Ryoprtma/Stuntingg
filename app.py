@@ -2,11 +2,17 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import pickle
+import xgboost
 
 # Load model dan komponen terkait
+with open('model_xgboost1.pkl', 'rb') as file:
+    model = pickle.load(file)
 
-model = pickle.load(open('model_xgboost1.pkl', 'rb'))
+with open('tinggi_mean.pkl', 'rb') as file:
+    tinggi_mean = pickle.load(file)
 
+with open('fitur_model.pkl', 'rb') as file:
+    fitur_model = pickle.load(file)
 
 # Judul aplikasi
 st.title("Prediksi Stunting pada Balita")
@@ -43,6 +49,6 @@ if st.button("Prediksi"):
     probabilitas = model.predict_proba(data_input)[0]
 
     # Tampilkan hasil
-    st.success(f"Prediksi Status Gizi: *{prediksi}*")
+    st.success(f"Prediksi Status Gizi: **{prediksi}**")
     st.write("Probabilitas:")
     st.write({f"{model.classes_[i]}": f"{round(prob * 100, 2)}%" for i, prob in enumerate(probabilitas)})
