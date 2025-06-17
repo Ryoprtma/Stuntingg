@@ -1,5 +1,6 @@
 numpy
 pandas
 scikit-learn
+xgboost
 streamlit==1.45.1
 matplotlib==3.5.2
